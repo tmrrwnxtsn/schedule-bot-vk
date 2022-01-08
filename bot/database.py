@@ -8,7 +8,8 @@ class StudentDatabase:
         self.sql.execute("""CREATE TABLE IF NOT EXISTS student(
         id SERIAL PRIMARY KEY,
         user_id INTEGER UNIQUE NOT NULL,
-        group_name VARCHAR(50) NOT NULL
+        group_name VARCHAR(50) NOT NULL,
+        schedule_type VARCHAR(50)
         )""")
         self.db.commit()
 
@@ -24,12 +25,20 @@ class StudentDatabase:
         self.sql.execute(f"UPDATE student SET group_name='{group_name}' WHERE user_id='{user_id}'")
         self.db.commit()
 
+    def update_schedule_type(self, user_id: int, schedule_type: str):
+        self.sql.execute(f"UPDATE student SET schedule_type='{schedule_type}' WHERE user_id='{user_id}'")
+        self.db.commit()
+
     def check_student(self, user_id: int) -> bool:
         self.sql.execute(f"SELECT user_id FROM student WHERE user_id='{user_id}'")
         return not self.sql.fetchone() is None
 
     def get_group(self, user_id: int) -> str:
         self.sql.execute(f"SELECT group_name FROM student WHERE user_id='{user_id}'")
+        return self.sql.fetchone()[0]
+
+    def get_schedule_type(self, user_id: int) -> str:
+        self.sql.execute(f"SELECT schedule_type FROM student WHERE user_id='{user_id}'")
         return self.sql.fetchone()[0]
 
     def get_student_ids_by_group(self, group_name: str) -> []:

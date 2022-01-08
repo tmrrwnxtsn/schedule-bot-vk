@@ -1,5 +1,6 @@
-from os import getenv
 import asyncio
+import time
+from os import getenv
 from random import randint
 
 from vkbottle import Bot
@@ -8,10 +9,10 @@ from vkbottle.types.methods.groups import GroupsGetMembers
 from vkbottle.types.methods.messages import MessagesSend
 
 import config
-from utils import get_days_delta_by_weekday, is_group
-from schedule import get_schedule
 from database import StudentDatabase
 from keyboards import *
+from schedule import get_lessons, get_exams
+from utils import get_days_delta_by_weekday, is_group
 
 bp = Blueprint(name="Обработчик сообщений")
 db = StudentDatabase(getenv("DATABASE_URL"))
@@ -35,8 +36,7 @@ async def handle_start_msg(ans: Message):
     if db.check_student(ans.from_id):
         await ans("Привет! На связи Фмиашка! &#128156; Напиши:\n\n"
                   "&#10145; «Моё расписание», чтобы перейти к расписанию выбранной учебной группы\n\n"
-                  "&#10145; «Изменить группу», чтобы поменять группу, расписание которой ты будешь получать\n\n"
-                  "&#10145; «Помощь», чтобы получить дальнейшую инструкцию\n\n",
+                  "&#10145; «Изменить группу», чтобы поменять группу, расписание которой ты будешь получать\n\n",
                   keyboard=default_keyboard())
     else:
         await ans("Привет! На связи Фмиашка! &#128156;\n\n"
@@ -50,8 +50,7 @@ async def handle_back_msg(ans: Message):
     if db.check_student(ans.from_id):
         await ans("Напиши:\n\n"
                   "&#10145; «Моё расписание», чтобы перейти к расписанию выбранной учебной группы\n\n"
-                  "&#10145; «Изменить группу», чтобы поменять группу, расписание которой ты будешь получать\n\n"
-                  "&#10145; «Помощь», чтобы получить дальнейшую инструкцию\n\n",
+                  "&#10145; «Изменить группу», чтобы поменять группу, расписание которой ты будешь получать\n\n",
                   keyboard=default_keyboard())
     else:
         await ans("Напиши название учебной группы, чтобы узнать её расписание &#9999; "
@@ -62,10 +61,37 @@ async def handle_back_msg(ans: Message):
 async def handle_my_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
         await ans("Напиши:\n\n"
-                  "&#10145; «Сегодня», чтобы получить расписание на сегодняшний день\n\n"
-                  "&#10145; «Завтра», чтобы узнать расписание на завтрашний день\n\n"
-                  "&#10145; «День недели», чтобы получить расписание на выбранный день текущей недели\n\n"
-                  "&#10145; «Назад», чтобы вернуться в главное меню", keyboard=schedule_keyboard())
+                  "&#10145; «Пары», чтобы получить расписание занятий\n\n"
+                  "&#10145; «Экзамены», чтобы узнать расписание экзаменов\n\n"
+                  "&#10145; «Назад», чтобы вернуться в главное меню", keyboard=first_lvl_schedule_keyboard())
+    else:
+        await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
+                  "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
+
+
+@bp.on.message(text=["Пары"], lower=True)
+async def handle_my_lessons_schedule_msg(ans: Message):
+    if db.check_student(ans.from_id):
+        db.update_schedule_type(ans.from_id, "Пары")
+        await ans("Напиши:\n\n"
+                  "&#10145; «Сегодня», чтобы получить расписание занятий на сегодняшний день\n\n"
+                  "&#10145; «Завтра», чтобы узнать расписание занятий на завтрашний день\n\n"
+                  "&#10145; «День недели», чтобы получить расписание занятий на выбранный день ТЕКУЩЕЙ недели\n\n"
+                  "&#10145; «Назад», чтобы вернуться в главное меню", keyboard=second_lvl_schedule_keyboard())
+    else:
+        await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
+                  "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
+
+
+@bp.on.message(text=["Экзамены"], lower=True)
+async def handle_my_exams_schedule_msg(ans: Message):
+    if db.check_student(ans.from_id):
+        db.update_schedule_type(ans.from_id, "Экзамены")
+        await ans("Напиши:\n\n"
+                  "&#10145; «Сегодня», чтобы получить расписание экзаменов на сегодняшний день\n\n"
+                  "&#10145; «Завтра», чтобы узнать расписание экзаменов на завтрашний день\n\n"
+                  "&#10145; «День недели», чтобы получить расписание экзаменов на выбранный день ТЕКУЩЕЙ недели\n\n"
+                  "&#10145; «Назад», чтобы вернуться в главное меню", keyboard=second_lvl_schedule_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
                   "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
@@ -75,11 +101,17 @@ async def handle_my_schedule_msg(ans: Message):
 async def handle_day_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
         student_group = db.get_group(ans.from_id)
-        if ans.text.lower() == "сегодня":
-            schedule_text = get_schedule(student_group, 0)
+        if db.get_schedule_type(ans.from_id) == "Пары":
+            if ans.text.lower() == "сегодня":
+                schedule_text = get_lessons(student_group, 0)
+            else:
+                schedule_text = get_lessons(student_group, 1)
         else:
-            schedule_text = get_schedule(student_group, 1)
-        await ans(schedule_text, keyboard=schedule_keyboard())
+            if ans.text.lower() == "сегодня":
+                schedule_text = get_exams(student_group, 0)
+            else:
+                schedule_text = get_exams(student_group, 1)
+        await ans(schedule_text, keyboard=second_lvl_schedule_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
                   "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
@@ -88,26 +120,29 @@ async def handle_day_schedule_msg(ans: Message):
 @bp.on.message(text=["День недели"], lower=True)
 async def handle_weekday_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
-        await ans("Напиши сокращённое название дня недели: «Пн», «Вт», «Ср», «Чт», «Пт», «Сб» &#9999;",
+        await ans("Напиши сокращённое название дня недели: «Пн», «Вт», «Ср», «Чт», «Пт», «Сб», «Вс» &#9999;",
                   keyboard=weekdays_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
                   "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
 
 
-@bp.on.message(text=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"], lower=True)
+@bp.on.message(text=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"], lower=True)
 async def handle_get_weekday_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
         student_group = db.get_group(ans.from_id)
         days_delta = get_days_delta_by_weekday(ans.text.lower())
-        schedule_text = get_schedule(student_group, days_delta)
+        if db.get_schedule_type(ans.from_id) == "Пары":
+            schedule_text = get_lessons(student_group, days_delta)
+        else:
+            schedule_text = get_exams(student_group, days_delta)
         await ans(schedule_text, keyboard=weekdays_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
                   "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
 
 
-@bp.on.message(text=config.GROUPS)
+@bp.on.message(text=config.LESSONS_GROUPS)
 async def handle_group_msg(ans: Message):
     db.information(ans.from_id, ans.text)
     await ans(f"Твоя группа обновлена на {ans.text} &#9989;")
@@ -128,6 +163,7 @@ async def handle_unknown_msg(ans: Message):
         for student_id in student_ids:
             await messages_send(user_id=student_id[0], random_id=randint(-200000000, 2100000000),
                                 message=split_user_input[1])
+            time.sleep(1)  # DDOS attack off :D
         await ans(
             f"{len(student_ids)} студент(-ов) из {split_user_input[0]} получил(-и) сообщение «{split_user_input[1]}»")
     else:

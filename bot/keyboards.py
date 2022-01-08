@@ -6,12 +6,20 @@ def default_keyboard():
     keyboard.add_row()
     keyboard.add_button(Text("Моё расписание"), color="primary")
     keyboard.add_button(Text("Изменить группу"), color="primary")
-    keyboard.add_row()
-    keyboard.add_button(Text("Помощь"), color="positive")
     return keyboard.generate()
 
 
-def schedule_keyboard():
+def first_lvl_schedule_keyboard():
+    keyboard = Keyboard()
+    keyboard.add_row()
+    keyboard.add_button(Text("Пары"), color="primary")
+    keyboard.add_button(Text("Экзамены"), color="primary")
+    keyboard.add_row()
+    keyboard.add_button(Text("Назад"), color="secondary")
+    return keyboard.generate()
+
+
+def second_lvl_schedule_keyboard():
     keyboard = Keyboard()
     keyboard.add_row()
     keyboard.add_button(Text("Сегодня"), color="primary")
@@ -32,6 +40,7 @@ def weekdays_keyboard():
     keyboard.add_button(Text("Чт"), color="primary")
     keyboard.add_button(Text("Пт"), color="primary")
     keyboard.add_button(Text("Сб"), color="primary")
+    keyboard.add_button(Text("Вс"), color="primary")
     keyboard.add_row()
     keyboard.add_button(Text("Назад"), color="secondary")
     return keyboard.generate()
