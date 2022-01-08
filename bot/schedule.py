@@ -1,9 +1,11 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from re import sub
 
-from pandas import Series
+import pandas
+from pandas import Series, read_excel
 
-from utils import *
+import config
+from utils import get_group_exams_sheet, get_week_and_weekday_nums
 
 
 def get_lessons(group_name: str, days_delta: int) -> str:
@@ -37,7 +39,7 @@ def get_lessons(group_name: str, days_delta: int) -> str:
     return schedule_text
 
 
-def get_exams(group_name: str, days_delta: int):
+def get_exams(group_name: str):
     sheet_name = get_group_exams_sheet(group_name)
 
     dfs = read_excel(config.EXAMS_PATH, sheet_name=sheet_name, skiprows=6, engine="openpyxl")
@@ -48,17 +50,22 @@ def get_exams(group_name: str, days_delta: int):
     dates = pd_data_dates.to_list()
     exams = pd_data_exams.to_list()
 
-    now_time_with_delta = datetime.now() + timedelta(days=days_delta)
+    schedule_text = f'Расписание экзаменов {group_name}:\n\n'
 
-    schedule_text = f'Расписание экзаменов {group_name} на {now_time_with_delta.strftime("%d.%m.%Y")}:\n\n'
-
+    has_exams = False
     for i in range(len(dates)):
-        if equals_dates(now_time_with_delta, dates[i]):
-            if isinstance(exams[i], str):
-                schedule_text += sub(' {2,}', ' ', exams[i].replace("\n", ", ").strip())
-            else:
-                schedule_text += "Экзаменов нет &#128526;"
-            return schedule_text
+        if isinstance(exams[i], str):
+            has_exams = True
+            if not pandas.isna(dates[i]):
+                date_strf = dates[i].strftime("%d.%m.%Y")
+                exam_strf = sub(" {2,}", " ", exams[i].replace("\n", ", ").strip())
+                schedule_text += f'{date_strf} — {exam_strf}\n\n'
+            elif "каникулы" in exams[i]:
+                exam_strf = sub(" {2,}", " ",
+                                exams[i].replace("\n", ", ").replace("каникулы", "&#10071; Каникулы").strip())
+                schedule_text += f'{exam_strf}'
 
-    schedule_text += "Экзаменов нет &#128526;"
+    if not has_exams:
+        schedule_text += "Экзаменов нет &#128526;"
+
     return schedule_text

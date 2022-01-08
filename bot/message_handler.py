@@ -72,7 +72,6 @@ async def handle_my_schedule_msg(ans: Message):
 @bp.on.message(text=["Пары"], lower=True)
 async def handle_my_lessons_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
-        db.update_schedule_type(ans.from_id, "Пары")
         await ans("Напиши:\n\n"
                   "&#10145; «Сегодня», чтобы получить расписание занятий на сегодняшний день\n\n"
                   "&#10145; «Завтра», чтобы узнать расписание занятий на завтрашний день\n\n"
@@ -86,12 +85,9 @@ async def handle_my_lessons_schedule_msg(ans: Message):
 @bp.on.message(text=["Экзамены"], lower=True)
 async def handle_my_exams_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
-        db.update_schedule_type(ans.from_id, "Экзамены")
-        await ans("Напиши:\n\n"
-                  "&#10145; «Сегодня», чтобы получить расписание экзаменов на сегодняшний день\n\n"
-                  "&#10145; «Завтра», чтобы узнать расписание экзаменов на завтрашний день\n\n"
-                  "&#10145; «День недели», чтобы получить расписание экзаменов на выбранный день ТЕКУЩЕЙ недели\n\n"
-                  "&#10145; «Назад», чтобы вернуться в главное меню", keyboard=second_lvl_schedule_keyboard())
+        student_group = db.get_group(ans.from_id)
+        schedule_text = get_exams(student_group)
+        await ans(schedule_text, keyboard=first_lvl_schedule_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
                   "Например, ПМ-О-21/1 или АТПП-О-20/1.", keyboard=empty_keyboard())
@@ -101,16 +97,10 @@ async def handle_my_exams_schedule_msg(ans: Message):
 async def handle_day_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
         student_group = db.get_group(ans.from_id)
-        if db.get_schedule_type(ans.from_id) == "Пары":
-            if ans.text.lower() == "сегодня":
-                schedule_text = get_lessons(student_group, 0)
-            else:
-                schedule_text = get_lessons(student_group, 1)
+        if ans.text.lower() == "сегодня":
+            schedule_text = get_lessons(student_group, 0)
         else:
-            if ans.text.lower() == "сегодня":
-                schedule_text = get_exams(student_group, 0)
-            else:
-                schedule_text = get_exams(student_group, 1)
+            schedule_text = get_lessons(student_group, 1)
         await ans(schedule_text, keyboard=second_lvl_schedule_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "
@@ -132,10 +122,7 @@ async def handle_get_weekday_schedule_msg(ans: Message):
     if db.check_student(ans.from_id):
         student_group = db.get_group(ans.from_id)
         days_delta = get_days_delta_by_weekday(ans.text.lower())
-        if db.get_schedule_type(ans.from_id) == "Пары":
-            schedule_text = get_lessons(student_group, days_delta)
-        else:
-            schedule_text = get_exams(student_group, days_delta)
+        schedule_text = get_lessons(student_group, days_delta)
         await ans(schedule_text, keyboard=weekdays_keyboard())
     else:
         await ans("Группа не выбрана! Напиши название учебной группы, чтобы узнать её расписание &#9999; "

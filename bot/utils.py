@@ -47,11 +47,6 @@ def get_lessons_groups() -> list:
     return list(filter(lambda heading: is_group(heading), headings))
 
 
-def equals_dates(d1, d2):
-    return isinstance(d1, datetime) and isinstance(d2, datetime) and \
-           d1.day == d2.day and d1.month == d2.month and d1.year == d2.year
-
-
 def get_group_exams_sheet(group_name: str) -> str:
     for k, v in config.EXAMS_GROUPS.items():
         if group_name in v:
